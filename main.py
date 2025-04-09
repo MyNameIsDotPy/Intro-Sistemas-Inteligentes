@@ -1,5 +1,7 @@
-from itertools import permutations
 import random
+from itertools import permutations
+from typing import override
+
 
 ### --------- UTILS --------- ###
 
@@ -31,52 +33,47 @@ def validate_winner(perception: str):
 ### --------- CLASES --------- ###
 
 class Agent:
+
     def __init__(self):
         self.number = generate_secret()  # Número secreto del agente
-        self.possible_numbers = generate_all_numbers()  # Posibles números del oponente
-        self.last_guess = None  # Última conjetura hecha por este agente
-        self.last_action = ""
-
-    def setup(self, perception: str) -> str:
-        """Configura el agente según la percepción inicial (B o N)."""
-        if perception == 'B':
-            return 'N'  # Blanco empieza adivinando
-        elif perception == 'N':
-            return "L"  # Negro responde "Listo"
-        elif perception == 'L':
-            return self.send_guess()
-        else:
-            raise ValueError("Percepción inválida para setup")
 
     def compute(self, perception: str) -> str:
         """Procesa una percepción y retorna una acción."""
 
-        print(f"My perception: {perception}")
+        if perception in "BN":
+            return 'L'
 
-        if perception in "BNL":
-            return self.setup(perception)
-
-        if perception == self.last_action:
-            print("Confirmación Recibida")
-            self.last_action = None
+        if perception == "L":
             return self.send_guess()
 
         elif perception.isdigit() and len(perception) == 4:
             # Es un número adivinado por el oponente, calcular picas y fijas
             picas, fijas = calculate_picas_fijas(self.number, perception)
-            self.last_action =  f"{picas},{fijas}"
+            return f"{picas},{fijas}"
 
         elif ',' in perception:
             # Es feedback (picas, fijas) del oponente
             picas, fijas = map(int, perception.split(','))
             self.process_feedback(picas, fijas)
-            self.last_action =  perception
+            return 'L'
 
         else:
             raise ValueError(f"Percepción inválida: {perception}")
 
-        return self.last_action
+    def send_guess(self) -> str:
+        pass
 
+    def process_feedback(self, picas: int, fijas: int):
+        pass
+
+class AgentImp(Agent):
+    def __init__(self):
+        super().__init__()
+        self.last_guess = None  # Última conjetura hecha por este agente
+        self.possible_numbers = generate_all_numbers()  # Posibles números del oponente
+
+
+    @override
     def send_guess(self) -> str:
         """Envía una conjetura (número de 4 dígitos)."""
         if not self.possible_numbers:
@@ -84,6 +81,7 @@ class Agent:
         self.last_guess = random.choice(self.possible_numbers)  # Podría optimizarse
         return self.last_guess
 
+    @override
     def process_feedback(self, picas: int, fijas: int) -> None:
         """Filtra los números posibles según el feedback."""
         new_possible = []
@@ -92,31 +90,8 @@ class Agent:
             if computed_p == picas and computed_f == fijas:
                 new_possible.append(num)
         self.possible_numbers = new_possible
-"""
-### ------ Explicación comunicación ------ ###
-# 
-# Agente B
-#  B -> N      # Blanco confirma que está listo 
-# 
-# Agente N
-#  N -> L      # Negro confirma que está listo
-#  
-# Agente B 
-# L -> 1234    # Guess inicial
-#  
-# Agente N 
-# 1234 -> P,F  # Envia respuesta de calculo picas y fijas
-# 
-# Agente B
-# P,F -> P,F   # Envia confirmación de mensaje recibido
-# 
-# Agente N
-# P,F -> 1234  # Compara con ultimo mensaje emitido, envia guess
-# 
-# El proceso se repite e intercambian posiciones
-# 
-### ------ Explicación comunicación ------ ###
-"""
+
+
 class Environment:
     def __init__(self, agent_b, agent_n):
         self.agent_b = agent_b  # Agente Blanco (empieza primero)
@@ -129,9 +104,12 @@ class Environment:
 
     def play_turn(self) -> bool:
         """Ejecuta un turno y retorna True si el juego terminó."""
+
+        last_turn = self.current_turn
+
         if not self.initialized:
             self.action = agent_b.compute('B')
-            self.current_turn = 'N'
+            self.action = agent_n.compute('N')
             self.initialized = True
 
         elif self.current_turn == 'B':
@@ -141,14 +119,15 @@ class Environment:
         elif self.current_turn == 'N':
             self.action = agent_n.compute(self.action)
             self.current_turn = 'B'
-        print(f'Action: {self.action}')
+        if self.action != 'L':
+            print(f"\n--- Turno ({last_turn}) ---")
+            print(self.action)
         return validate_winner(self.action)
 
     def run_game(self) -> str:
         """Ejecuta el juego hasta que haya un ganador o se alcance el máximo de turnos."""
         game_over = False
         while not game_over:
-            print(f"\n--- Turno ({self.current_turn}) ---")
             game_over = self.play_turn()
             if game_over:
                 self.winner = self.current_turn
@@ -157,68 +136,22 @@ class Environment:
         print("¡Empate! Nadie adivinó el número.")
         return "Draw"
 
-class DummyAgent:
+class DummyAgent(Agent):
 
-    def __init__(self):
-        self.turn = None
-        self.number = generate_secret()
-        self.last_action = ''
-
-    @staticmethod
-    def send_guess():
+    @override
+    def send_guess(self):
         return input("Ingresa un número de 4 dígitos: ")
 
-    @staticmethod
-    def process_feedback(picas, fijas):
-        print(f"Picas, Fijas: {picas}, {fijas}")
-
-    def setup(self, perception: str) -> str:
-        """Configura el agente según la percepción inicial (B o N)."""
-        if perception == 'B':
-            return 'N'  # Blanco empieza adivinando
-        elif perception == 'N':
-            return "L"  # Negro responde "Listo"
-        elif perception == 'L':
-            return self.send_guess()
-        else:
-            raise ValueError("Percepción inválida para setup")
-
-    def compute(self, perception: str) -> str:
-        """Procesa una percepción y retorna una acción."""
-
-        print(f"My perception: {perception}")
-
-        if perception in "BNL":
-            return self.setup(perception)
-
-        if perception == self.last_action:
-            print("Confirmación Recibida")
-            self.last_action = None
-            return self.send_guess()
-
-        elif perception.isdigit() and len(perception) == 4:
-            # Es un número adivinado por el oponente, calcular picas y fijas
-            picas, fijas = calculate_picas_fijas(self.number, perception)
-            self.last_action = f"{picas},{fijas}"
-
-        elif ',' in perception:
-            # Es feedback (picas, fijas) del oponente
-            picas, fijas = map(int, perception.split(','))
-            self.process_feedback(picas, fijas)
-            self.last_action = perception
-
-        else:
-            raise ValueError(f"Percepción inválida: {perception}")
-
-        return self.last_action
-
+    @override
+    def process_feedback(self, picas, fijas):
+        pass
 
 # Ejemplo de uso:
 if __name__ == "__main__":
-    agent_b = DummyAgent()  # Agente Blanco (inicia primero)
-    agent_n = Agent()  # Agente Negro
-    print(f"Agent number: {agent_n.number}")
+    agent_b = AgentImp()  # Agente Blanco (inicia primero)
+    agent_n = AgentImp()  # Agente Negro
     print(f"Dummy number: {agent_b.number}")
+    print(f"Agent number: {agent_n.number}")
     env = Environment(agent_b, agent_n)
     winner = env.run_game()
     print(f"El ganador es: {winner}")
