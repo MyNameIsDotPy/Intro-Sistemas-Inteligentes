@@ -133,9 +133,21 @@ OBJECTIVE = [
 ]
 
 if __name__ == "__main__":
-    solution = a_star(INITIAL_STATE, OBJECTIVE, dumb_heuristic)
-    print(f'Se tomaron {len(solution)} pasos para llegar a la solución' if solution else 'Sin solución')
-    if solution:
-        for step in solution:
-            step: Node
+    solution1 = a_star(INITIAL_STATE, OBJECTIVE, dumb_heuristic)
+    solution2 = a_star(INITIAL_STATE, OBJECTIVE, manhattan_heuristic)
+    if solution1:
+        print(f"{dumb_heuristic.__name__} tomó {len(solution1)} intentos")
+        for step in solution1:
             print(step)
+    else:
+        print('Sin solución')
+
+    print("##############################################################")
+    print()
+
+    if solution2:
+        print(f"{manhattan_heuristic.__name__} tomó {len(solution2)} intentos")
+        for step in solution2:
+            print(step)
+    else:
+        print('Sin solución')

@@ -93,7 +93,7 @@ class AgentImp(Agent):
 
 
 class Environment:
-    def __init__(self, agent_b, agent_n):
+    def __init__(self, agent_b:Agent, agent_n:Agent):
         self.agent_b = agent_b  # Agente Blanco (empieza primero)
         self.agent_n = agent_n  # Agente Negro
         self.current_turn = 'B'  # Empieza Blanco
@@ -108,16 +108,16 @@ class Environment:
         last_turn = self.current_turn
 
         if not self.initialized:
-            self.action = agent_b.compute('B')
-            self.action = agent_n.compute('N')
+            self.action = B.compute('B')
+            self.action = N.compute('N')
             self.initialized = True
 
         elif self.current_turn == 'B':
-            self.action = agent_b.compute(self.action)
+            self.action = B.compute(self.action)
             self.current_turn = 'N'
 
         elif self.current_turn == 'N':
-            self.action = agent_n.compute(self.action)
+            self.action = N.compute(self.action)
             self.current_turn = 'B'
         if self.action != 'L':
             print(f"\n--- Turno ({last_turn}) ---")
@@ -148,10 +148,12 @@ class DummyAgent(Agent):
 
 # Ejemplo de uso:
 if __name__ == "__main__":
-    agent_b = AgentImp()  # Agente Blanco (inicia primero)
-    agent_n = AgentImp()  # Agente Negro
-    print(f"Dummy number: {agent_b.number}")
-    print(f"Agent number: {agent_n.number}")
-    env = Environment(agent_b, agent_n)
+    from turingsitos_agent import AgentExternal
+
+    B = AgentExternal()  # Agente Blanco (inicia primero)
+    N = AgentImp()  # Agente Negro
+    print(f"B number: {B.number}")
+    print(f"N number: {N.number}")
+    env = Environment(B, N)
     winner = env.run_game()
     print(f"El ganador es: {winner}")
