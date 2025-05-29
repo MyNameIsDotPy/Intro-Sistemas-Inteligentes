@@ -1,78 +1,39 @@
-import time
 import cv2
-import numpy as np
-import pyautogui as pgui
+from utils import *
+from initial_config import *
 import os
 
-# --- Configuración de parámetros ---
-TEMPLATE_PATH = "./templates/header_template.png"
-SCREENSHOT_PATH = "screen_state.png"
-GRID_OFFSET = 27
-RECT_SIZE = (341, 511)
-GRID_DIMENSIONS = (8, 12)
-DELAY_SECONDS = 3
-
-def capture_screen(delay=3, save_path=SCREENSHOT_PATH):
-    """Captura la pantalla después de un retardo y la convierte a formato OpenCV."""
-    time.sleep(delay)
-    screenshot = pgui.screenshot(save_path)
-    return cv2.cvtColor(np.array(screenshot), cv2.COLOR_RGB2BGR)
-
-def find_template(screen, template_path):
-    """Busca la posición del template en la pantalla capturada."""
-    template = cv2.imread(template_path)
-    if template is None:
-        raise FileNotFoundError(f"No se encontró el template en {template_path}")
-    res = cv2.matchTemplate(screen, template, cv2.TM_SQDIFF_NORMED)
-    min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
-    return min_loc, template
-
-def draw_rectangle(image, top_left, size, color=(0, 255, 0), thickness=1):
-    """Dibuja un rectángulo en la imagen."""
-    bottom_right = (top_left[0] + size[0], top_left[1] + size[1])
-    cv2.rectangle(image, top_left, bottom_right, color, thickness)
-
-def draw_grid(image, rect_start, rect_size, grid_size, color=(0, 255, 0), thickness=1):
-    """Dibuja una cuadrícula dentro de un rectángulo dado."""
-    x0, y0 = rect_start
-    width, height = rect_size
-    rows, cols = grid_size
-
-    x_step = width / rows
-    y_step = height / cols
-
-    # Líneas verticales
-    for i in range(1, rows):
-        x = int(x0 + x_step * i)
-        cv2.line(image, (x, y0), (x, y0 + height), color, thickness)
-    # Líneas horizontales
-    for j in range(1, cols):
-        y = int(y0 + y_step * j)
-        cv2.line(image, (x0, y), (x0 + width, y), color, thickness)
 
 def main():
     # 1. Captura de pantalla
     screen = capture_screen(DELAY_SECONDS)
 
-    # 2. Detección del template
-    min_loc, template = find_template(screen, TEMPLATE_PATH)
-    x1, y1 = min_loc
-    x2, y2 = x1 + template.shape[1], y1 + template.shape[0]
+    # 2. Detección del template (debe aparecer una sola vez)
+    matches = find_all_templates(screen, TEMPLATE_PATH, threshold=0.9)
+    if not matches:
+        raise Exception("Template no encontrada")
+
+    # Tomar solo el primer resultado
+    x1, y1, w, h = matches[0]
+
+    # Cargar el template para mostrarlo después
+    template = cv2.imread(TEMPLATE_PATH)
 
     # 3. Define el área de la cuadrícula
     rect_start = (x1 + GRID_OFFSET, y1 + GRID_OFFSET)
-    save_grid_cells(screen, rect_start, RECT_SIZE, GRID_DIMENSIONS)
+    # save_grid_cells(screen, rect_start, RECT_SIZE, GRID_DIMENSIONS)
 
-    # 4. Dibuja el rectángulo del template detectado
-    cv2.rectangle(screen, (x1, y1), (x2, y2), (0, 255, 0), 3)
+    a = np.array(rect_start)
+    b = a + np.array(RECT_SIZE)
 
+    # 4. Recorta la pantalla de juego
+    game_screen = screen[a[1]:b[1], a[0]:b[0]]
+    game_screen = get_game_state(game_screen)
     # 5. Dibuja la cuadrícula y el rectángulo de la zona
-    draw_grid(screen, rect_start, RECT_SIZE, GRID_DIMENSIONS)
-    draw_rectangle(screen, rect_start, RECT_SIZE)
+    # draw_grid(screen, rect_start, RECT_SIZE, GRID_DIMENSIONS)
 
     # 6. Muestra las imágenes
-    cv2.imshow("Screen with Grid", screen)
-    cv2.imshow("Template", template)
+    cv2.imshow("Screen with Grid", game_screen)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
