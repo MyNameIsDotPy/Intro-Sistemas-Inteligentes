@@ -15,9 +15,9 @@ def detectar_piedras_redondas(imagen_path, mostrar_resultado=True):
                                 dp=1.2, 
                                 minDist=30,
                                 param1=50, 
-                                param2=30, 
-                                minRadius=10,
-                                maxRadius=17)
+                                param2=30, # parametros relevantes-> este es el grado de seguridad que debe tener para afirmar que es una piedra
+                                minRadius=8,# parametros relevantes-> radio minimo
+                                maxRadius=15) # parametros relevantes-> radio maximo  
 
     coordenadas = []
     if circulos is not None:
@@ -35,5 +35,5 @@ def detectar_piedras_redondas(imagen_path, mostrar_resultado=True):
 
     return coordenadas
 
-coords = detectar_piedras_redondas("dmrush3.PNG")
+coords = detectar_piedras_redondas("dmrush.PNG")
 print("Coordenadas de piedras redondas:", coords)
