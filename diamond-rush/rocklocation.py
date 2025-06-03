@@ -35,5 +35,5 @@ def detectar_piedras_redondas(imagen_path, mostrar_resultado=True):
 
     return coordenadas
 
-coords = detectar_piedras_redondas("dmrush.PNG")
+coords = detectar_piedras_redondas("dmrush3.PNG")
 print("Coordenadas de piedras redondas:", coords)
