@@ -127,11 +127,10 @@ def get_game_state(game_screen, level_objects = LevelObjects):
 
             # cv2.rectangle(new_game_screen, (a_x, a_y), (b_x, b_y), (255, 0, 255), 2)
 
-            crop = new_game_screen[a_y:b_y, a_x:b_x]
+            crop = game_screen[a_y:b_y, a_x:b_x]
+            cv2.imshow("crop", crop)
+            cv2.waitKey(0)
             color_mean_bgr = cv2.mean(crop)[:3]
-            color = np.ones((100,100,3)) * color_mean_bgr/255
-
-
             diff = np.linalg.norm(color_mean_bgr - GROUND_COLOR_BGR)
 
             if  diff > 50:
@@ -149,3 +148,37 @@ def get_game_state(game_screen, level_objects = LevelObjects):
             cv2.rectangle(new_game_screen, (position[0], position[1]), (position[0] + position[2], position[1] + position[3]),(0,0,255), 2)
     print_game_state(game)
     return new_game_screen
+
+
+def detectar_piedras_redondas(img, mostrar_resultado=True):
+    # Cargar la imagen
+    gris = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+    # Aplicar desenfoque para reducir ruido
+    gris_suavizado = cv2.medianBlur(gris, 5)
+
+    # Detección de círculos con Hough
+    circulos = cv2.HoughCircles(gris_suavizado,
+                                cv2.HOUGH_GRADIENT,
+                                dp=1.2,
+                                minDist=30,
+                                param1=50,
+                                param2=30,
+                                minRadius=10,
+                                maxRadius=17)
+
+    coordenadas = []
+    if circulos is not None:
+        circulos = np.uint16(np.around(circulos))
+        for (x, y, r) in circulos[0, :]:
+            coordenadas.append((x, y, r))
+            if mostrar_resultado:
+                cv2.circle(img, (x, y), r, (0, 255, 0), 2)
+                cv2.circle(img, (x, y), 2, (0, 0, 255), 3)
+
+    if mostrar_resultado:
+        cv2.imshow('Piedras Redondas Detectadas', img)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+
+    return coordenadas
