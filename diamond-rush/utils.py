@@ -3,14 +3,8 @@ import cv2
 from initial_config import *
 import pyautogui as pgui
 import numpy as np
-from objects.level_objects import LevelObjects
-
-def capture_screen(delay=3, save_path=SCREENSHOT_PATH):
-    """Captura la pantalla después de un retardo y la convierte a formato OpenCV."""
-    time.sleep(delay)
-    screenshot = pgui.screenshot(save_path)
-    return cv2.cvtColor(np.array(screenshot), cv2.COLOR_RGB2BGR)
-
+from level_objects import LevelObjects, CellDisplay
+from game_state import GameState
 
 def find_all_templates(screen, template_path, threshold=0.8, method=cv2.TM_CCOEFF_NORMED):
     """Encuentra todas las coincidencias del template que superen el threshold"""
@@ -71,85 +65,6 @@ def non_max_suppression(boxes, overlapThresh=0.4):
 
     return boxes[pick].astype("int").tolist()
 
-def draw_rectangle(image, top_left, size, color=(0, 255, 0), thickness=1):
-    """Dibuja un rectángulo en la imagen."""
-    bottom_right = (top_left[0] + size[0], top_left[1] + size[1])
-    cv2.rectangle(image, top_left, bottom_right, color, thickness)
-
-def draw_grid(image, rect_start, rect_size, grid_size, color=(0, 255, 0), thickness=1):
-    """Dibuja una cuadrícula dentro de un rectángulo dado."""
-    x0, y0 = rect_start
-    width, height = rect_size
-    rows, cols = grid_size
-
-    x_step = width / rows
-    y_step = height / cols
-
-    # Líneas verticales
-    for i in range(1, rows):
-        x = int(x0 + x_step * i)
-        cv2.line(image, (x, y0), (x, y0 + height), color, thickness)
-    # Líneas horizontales
-    for j in range(1, cols):
-        y = int(y0 + y_step * j)
-        cv2.line(image, (x0, y), (x0 + width, y), color, thickness)
-
-def print_game_state(game):
-    # Transponer la matriz
-    transposed = [list(row) for row in zip(*game)]
-    rows = len(transposed)
-    cols = len(transposed[0]) if rows > 0 else 0
-
-    # Top border
-    print('  +' + '-' * (2 * cols) + '+')
-
-    for i, row in enumerate(transposed):
-        row_str = ' '.join(row)
-        print(f"{str(i).rjust(2)}|{row_str}|")
-
-    # Bottom border
-    print('  +' + '-' * (2 * cols) + '+')
-
-    # Column labels
-    col_labels = '   ' + ' '.join([str(i % 10) for i in range(cols)])
-    print(col_labels)
-
-
-def get_game_state(game_screen, level_objects = LevelObjects):
-
-    game = [['##' for _ in range(GRID_DIMENSIONS[1])] for _ in range(GRID_DIMENSIONS[0])]
-    new_game_screen = game_screen.copy()
-
-    for x in range(GRID_DIMENSIONS[0]):
-        for y in range(GRID_DIMENSIONS[1]):
-            a_x, a_y = int(x*SINGLE_GRID_SIZE[1]), int(y*SINGLE_GRID_SIZE[0])
-            b_x, b_y = a_x + int(SINGLE_GRID_SIZE[1]), a_y + int(SINGLE_GRID_SIZE[0])
-
-            # cv2.rectangle(new_game_screen, (a_x, a_y), (b_x, b_y), (255, 0, 255), 2)
-
-            crop = game_screen[a_y:b_y, a_x:b_x]
-            cv2.imshow("crop", crop)
-            cv2.waitKey(0)
-            color_mean_bgr = cv2.mean(crop)[:3]
-            diff = np.linalg.norm(color_mean_bgr - GROUND_COLOR_BGR)
-
-            if  diff > 50:
-                game[x][y] = "WA"
-                print("WALL")
-
-
-    for levelObject in level_objects:
-        name = ''.join(list(map(lambda x: x[0], levelObject.name.split('_')))).upper().zfill(2)
-        positions = find_all_templates(game_screen, f'./templates/{levelObject.value}')
-        for position in positions:
-            x = int(position[0]/RECT_SIZE[0] * GRID_DIMENSIONS[0])
-            y = int(position[1]/RECT_SIZE[1] * GRID_DIMENSIONS[1])
-            game[x][y] = name
-            cv2.rectangle(new_game_screen, (position[0], position[1]), (position[0] + position[2], position[1] + position[3]),(0,0,255), 2)
-    print_game_state(game)
-    return new_game_screen
-
-
 def detectar_piedras_redondas(img, mostrar_resultado=True):
     # Cargar la imagen
     gris = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -182,3 +97,71 @@ def detectar_piedras_redondas(img, mostrar_resultado=True):
         cv2.destroyAllWindows()
 
     return coordenadas
+
+# Utility function to print game state
+def print_game_state(state):
+    """Visualize the game state in the console"""
+
+    grid = state['grid']
+    rows = len(grid)
+    cols = len(grid[0]) if rows > 0 else 0
+
+    # Map game objects to display characters
+    display_map = {
+        LevelObjects.WALL: CellDisplay.WALL,
+        LevelObjects.PLAYER_LEFT: CellDisplay.PLAYER,
+        LevelObjects.PLAYER_RIGHT: CellDisplay.PLAYER,
+        LevelObjects.ROCK: CellDisplay.ROCK,
+        LevelObjects.BUTTON: CellDisplay.BUTTON,
+        LevelObjects.DOOR_CLOSED: CellDisplay.DOOR_CLOSED,
+        LevelObjects.DOOR_OPEN: CellDisplay.DOOR_OPEN,
+        LevelObjects.DIAMOND: CellDisplay.DIAMOND,
+        LevelObjects.KEY: CellDisplay.KEY,
+        LevelObjects.KEY_DOOR: CellDisplay.KEY_DOOR,
+        LevelObjects.LAVA: CellDisplay.LAVA,
+        LevelObjects.SPIKES_UP: CellDisplay.SPIKES_UP,
+        LevelObjects.SPIKES_DOWN: CellDisplay.SPIKES_DOWN,
+        LevelObjects.EMPTY: CellDisplay.EMPTY,
+        LevelObjects.EXIT_CLOSED: CellDisplay.EXIT_CLOSED,
+        LevelObjects.EXIT_OPEN: CellDisplay.EXIT_OPEN,
+        LevelObjects.HOLE: CellDisplay.HOLE,
+    }
+
+    # Top border
+    print('  +' + '-' * (2 * cols) + '+')
+
+    for i, row in enumerate(grid):
+        row_str = ' '.join([display_map[cell] for cell in row])
+        print(f"{str(i).rjust(2)}|{row_str}|")
+
+    # Bottom border
+    print('  +' + '-' * (2 * cols) + '+')
+
+    # Column labels
+    col_labels = '   ' + ' '.join([str(i % 10) for i in range(cols)])
+    print(col_labels)
+
+# Convert vision output to solver input
+def convert_to_solver_state(game_state):
+    """Convert vision output to solver input"""
+
+    spikes_down = []
+
+    for spikes in game_state['spikes']:
+        if not game_state['spikes'][spikes]:
+            spikes_down.append(spikes)
+
+    initial_state = GameState(
+        player_pos=game_state['player_pos'],
+        rocks=frozenset(game_state['rocks']),
+        diamonds=frozenset(game_state['diamonds']),
+        buttons_pressed=frozenset(),
+        doors_open=frozenset(),
+        spikes_down=frozenset(spikes_down),
+        keys=frozenset(game_state['keys']),
+        cost=0,
+        has_key=False,
+        holes_closed=frozenset(),
+    )
+
+    return initial_state
