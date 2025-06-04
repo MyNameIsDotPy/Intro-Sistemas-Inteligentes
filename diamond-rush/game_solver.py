@@ -298,7 +298,8 @@ class DiamondRushSolver:
         print("No solution found!")
         return None
 
-    def _reconstruct_path(self, came_from, current_state):
+    @staticmethod
+    def _reconstruct_path(came_from, current_state):
         """Reconstruct the solution path"""
         path = [current_state]
         while current_state in came_from:
